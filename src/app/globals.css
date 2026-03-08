@@ -1,1 +1,22 @@
 @import "tailwindcss";
+
+:root {
+  --bg-deep: #0a0b10;
+  --bg-card: #111320;
+  --bg-hover: #181b2e;
+  --border: #1e2140;
+  --border-active: #c9a84c;
+  --gold: #e2c066;
+  --gold-dim: #a08530;
+  --text: #d4d4d8;
+  --text-dim: #6b6b80;
+  --text-bright: #f0f0f5;
+  --danger: #ef4444;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: "DM Mono", monospace;
+  min-height: 100vh;
+}
