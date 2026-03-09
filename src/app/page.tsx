@@ -26,7 +26,20 @@ interface SolveResult {
   actualCost: number;
 }
 
-type Stage = "input" | "classifying" | "approval" | "solving" | "done" | "error";
+interface CompareResult {
+  comparison: {
+    match: boolean;
+    claude_correct: boolean;
+    student_correct: boolean;
+    explanation: string;
+    mistake_type: string;
+    lesson: string | null;
+  };
+  compareCost: number;
+  stored: boolean;
+}
+
+type Stage = "input" | "classifying" | "approval" | "solving" | "done" | "comparing" | "feedback" | "error";
 
 function RenderMarkdown({ text }: { text: string }) {
   const lines = text.split("\n");
@@ -45,7 +58,7 @@ function RenderMarkdown({ text }: { text: string }) {
         if (line.startsWith("# "))
           return <h1 key={i} style={{ color: "#e2c066", margin: "20px 0 10px", fontSize: "1.3em", fontFamily: "'Cormorant Garamond', serif" }} dangerouslySetInnerHTML={{ __html: html.slice(2) }} />;
         if (line.startsWith("- "))
-          return <div key={i} style={{ paddingLeft: 18, position: "relative" }}><span style={{ position: "absolute", left: 4, color: "#e2c066" }}>›</span><span dangerouslySetInnerHTML={{ __html: html.slice(2) }} /></div>;
+          return <div key={i} style={{ paddingLeft: 18, position: "relative" }}><span style={{ position: "absolute", left: 4, color: "#e2c066" }}>&#8250;</span><span dangerouslySetInnerHTML={{ __html: html.slice(2) }} /></div>;
         if (line.trim() === "") return <div key={i} style={{ height: 8 }} />;
         return <div key={i} dangerouslySetInnerHTML={{ __html: html }} />;
       })}
@@ -58,6 +71,8 @@ export default function Home() {
   const [payload, setPayload] = useState<SubmitPayload | null>(null);
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
   const [solveResult, setSolveResult] = useState<SolveResult | null>(null);
+  const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
+  const [studentAnswer, setStudentAnswer] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = async (data: SubmitPayload) => {
@@ -117,21 +132,58 @@ export default function Home() {
     }
   };
 
+  const handleCompare = async () => {
+    if (!studentAnswer.trim() || !payload || !solveResult || !classifyResult) return;
+    setStage("comparing");
+
+    try {
+      const res = await fetch("/api/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: payload.question,
+          claudeAnswer: solveResult.solution,
+          studentAnswer,
+          subject: payload.subject,
+          difficulty: classifyResult.classification.difficulty,
+        }),
+      });
+      const result = await res.json();
+
+      if (result.error) {
+        setError(result.error);
+        setStage("error");
+        return;
+      }
+
+      setCompareResult(result);
+      setStage("feedback");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Compare failed");
+      setStage("error");
+    }
+  };
+
   const handleReset = () => {
     setStage("input");
     setPayload(null);
     setClassifyResult(null);
     setSolveResult(null);
+    setCompareResult(null);
+    setStudentAnswer("");
     setError("");
   };
 
   const difficultyConfig: Record<string, { label: string; icon: string; color: string }> = {
-    easy: { label: "Straightforward", icon: "◆", color: "#22c55e" },
-    medium: { label: "Multi-step", icon: "◆◆", color: "#f59e0b" },
-    hard: { label: "Complex", icon: "◆◆◆", color: "#ef4444" },
+    easy: { label: "Straightforward", icon: "\u25C6", color: "#22c55e" },
+    medium: { label: "Multi-step", icon: "\u25C6\u25C6", color: "#f59e0b" },
+    hard: { label: "Complex", icon: "\u25C6\u25C6\u25C6", color: "#ef4444" },
   };
 
-  const totalCost = (classifyResult?.classifyCost || 0) + (solveResult?.actualCost || 0);
+  const totalCost =
+    (classifyResult?.classifyCost || 0) +
+    (solveResult?.actualCost || 0) +
+    (compareResult?.compareCost || 0);
 
   return (
     <main style={{ maxWidth: 620, margin: "0 auto", padding: "36px 20px 60px" }}>
@@ -196,7 +248,7 @@ export default function Home() {
                 color: difficultyConfig[classifyResult.classification.difficulty]?.color || "var(--gold)",
                 fontSize: 14,
               }}>
-                {difficultyConfig[classifyResult.classification.difficulty]?.icon || "◆"}
+                {difficultyConfig[classifyResult.classification.difficulty]?.icon}
               </span>
               <div>
                 <div style={{ fontSize: 14, color: "var(--text-bright)", fontWeight: 500 }}>
@@ -207,7 +259,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
               <div>
                 <div className="stat-label">Model</div>
@@ -228,7 +279,7 @@ export default function Home() {
 
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={handleReset} className="btn-secondary">Cancel</button>
-            <button onClick={handleApprove} className="btn-primary">Approve & Solve →</button>
+            <button onClick={handleApprove} className="btn-primary">Approve & Solve</button>
           </div>
         </div>
       )}
@@ -250,8 +301,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Stage: Done */}
-      {stage === "done" && solveResult && payload && classifyResult && (
+      {/* Stage: Done (solution + feedback input) */}
+      {(stage === "done" || stage === "comparing" || stage === "feedback") && solveResult && payload && classifyResult && (
         <div style={{ animation: "fd 0.4s ease-out" }}>
           {/* Question */}
           <div style={{
@@ -275,38 +326,145 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Cost breakdown */}
-          <div style={{
-            background: "var(--bg-card)", border: "1.5px solid var(--border)",
-            borderRadius: 12, padding: 22, marginBottom: 16,
-          }}>
-            <div className="label">Cost Breakdown</div>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <div>
-                <div className="stat-label">Classify</div>
-                <div className="stat-value">${classifyResult.classifyCost.toFixed(4)}</div>
+          {/* Feedback section */}
+          {stage === "done" && (
+            <div style={{
+              background: "var(--bg-card)", border: "1.5px solid var(--border)",
+              borderRadius: 12, padding: 22, marginBottom: 16,
+            }}>
+              <div className="label">Know the correct answer? Help improve the tutor</div>
+              <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 12 }}>
+                Optional — share the textbook answer or your solution to help the system learn.
               </div>
-              <div>
-                <div className="stat-label">Solve</div>
-                <div className="stat-value">${solveResult.actualCost.toFixed(4)}</div>
-              </div>
-              <div>
-                <div className="stat-label">Total</div>
-                <div className="stat-value" style={{ color: "var(--gold)", fontWeight: 600 }}>
-                  ${totalCost.toFixed(4)}
-                </div>
-              </div>
-              <div>
-                <div className="stat-label">Tokens Used</div>
-                <div className="stat-value">{solveResult.inputTokens + solveResult.outputTokens}</div>
+              <textarea
+                placeholder="Paste the correct answer here..."
+                value={studentAnswer}
+                onChange={(e) => setStudentAnswer(e.target.value)}
+                style={{
+                  width: "100%", minHeight: 80,
+                  background: "var(--bg-deep)", border: "1.5px solid var(--border)",
+                  borderRadius: 8, padding: 12,
+                  color: "var(--text-bright)", fontFamily: "'DM Mono', monospace",
+                  fontSize: 12, lineHeight: 1.5, resize: "vertical", outline: "none",
+                }}
+                onFocus={(e) => e.currentTarget.style.borderColor = "var(--gold-dim)"}
+                onBlur={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+              />
+              <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                <button onClick={handleReset} className="btn-secondary">New Question</button>
+                <button
+                  onClick={handleCompare}
+                  disabled={!studentAnswer.trim()}
+                  className="btn-primary"
+                  style={{ opacity: studentAnswer.trim() ? 1 : 0.3 }}
+                >
+                  Submit Feedback
+                </button>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* New question button */}
-          <button onClick={handleReset} className="btn-primary" style={{ width: "100%" }}>
-            New Question
-          </button>
+          {/* Comparing spinner */}
+          {stage === "comparing" && (
+            <div style={{
+              background: "var(--bg-card)", border: "1.5px solid var(--border)",
+              borderRadius: 12, padding: 22, marginBottom: 16,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "var(--gold-dim)" }}>
+                <div className="spinner" />
+                Comparing answers...
+              </div>
+            </div>
+          )}
+
+          {/* Feedback result */}
+          {stage === "feedback" && compareResult && (
+            <div style={{
+              background: "var(--bg-card)",
+              border: compareResult.comparison.claude_correct
+                ? "1.5px solid #22c55e"
+                : "1.5px solid var(--danger)",
+              borderRadius: 12, padding: 22, marginBottom: 16,
+            }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8, marginBottom: 12,
+              }}>
+                <span style={{
+                  fontSize: 18,
+                  color: compareResult.comparison.claude_correct ? "#22c55e" : "var(--danger)",
+                }}>
+                  {compareResult.comparison.claude_correct ? "\u2713" : "\u2717"}
+                </span>
+                <span style={{
+                  fontSize: 13, fontWeight: 600,
+                  color: compareResult.comparison.claude_correct ? "#22c55e" : "var(--danger)",
+                }}>
+                  {compareResult.comparison.claude_correct
+                    ? "Solution was correct"
+                    : "Solution had an error"}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text)", lineHeight: 1.6, marginBottom: 12 }}>
+                {compareResult.comparison.explanation}
+              </div>
+              {compareResult.comparison.lesson && !compareResult.comparison.claude_correct && (
+                <div style={{
+                  background: "var(--bg-deep)", borderRadius: 8, padding: 12, marginBottom: 12,
+                }}>
+                  <div style={{ fontSize: 10, color: "var(--gold)", letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 6 }}>
+                    Lesson Learned
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text)", lineHeight: 1.5 }}>
+                    {compareResult.comparison.lesson}
+                  </div>
+                </div>
+              )}
+              {compareResult.stored && (
+                <div style={{ fontSize: 10, color: "var(--text-dim)" }}>
+                  Feedback stored — future answers will improve from this.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Cost breakdown */}
+          {(stage === "feedback" || stage === "done") && (
+            <div style={{
+              background: "var(--bg-card)", border: "1.5px solid var(--border)",
+              borderRadius: 12, padding: 22, marginBottom: 16,
+            }}>
+              <div className="label">Cost Breakdown</div>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                <div>
+                  <div className="stat-label">Classify</div>
+                  <div className="stat-value">${classifyResult.classifyCost.toFixed(4)}</div>
+                </div>
+                <div>
+                  <div className="stat-label">Solve</div>
+                  <div className="stat-value">${solveResult.actualCost.toFixed(4)}</div>
+                </div>
+                {compareResult && (
+                  <div>
+                    <div className="stat-label">Compare</div>
+                    <div className="stat-value">${compareResult.compareCost.toFixed(4)}</div>
+                  </div>
+                )}
+                <div>
+                  <div className="stat-label">Total</div>
+                  <div className="stat-value" style={{ color: "var(--gold)", fontWeight: 600 }}>
+                    ${totalCost.toFixed(4)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* New question button (only on feedback stage) */}
+          {stage === "feedback" && (
+            <button onClick={handleReset} className="btn-primary" style={{ width: "100%" }}>
+              New Question
+            </button>
+          )}
         </div>
       )}
 
