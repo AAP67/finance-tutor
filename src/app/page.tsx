@@ -18,12 +18,46 @@ interface ClassifyResult {
   classifyCost: number;
 }
 
-type Stage = "input" | "classifying" | "approval" | "error";
+interface SolveResult {
+  solution: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  actualCost: number;
+}
+
+type Stage = "input" | "classifying" | "approval" | "solving" | "done" | "error";
+
+function RenderMarkdown({ text }: { text: string }) {
+  const lines = text.split("\n");
+  return (
+    <div style={{ lineHeight: 1.8 }}>
+      {lines.map((line, i) => {
+        let html = line
+          .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#e2c066">$1</strong>')
+          .replace(/\*(.+?)\*/g, "<em>$1</em>")
+          .replace(/`(.+?)`/g, '<code style="background:#1a1a2e;padding:2px 6px;border-radius:3px;font-size:0.9em;color:#a78bfa">$1</code>');
+
+        if (line.startsWith("### "))
+          return <h3 key={i} style={{ color: "#e2c066", margin: "16px 0 6px", fontSize: "1.05em", fontFamily: "'Cormorant Garamond', serif" }} dangerouslySetInnerHTML={{ __html: html.slice(4) }} />;
+        if (line.startsWith("## "))
+          return <h2 key={i} style={{ color: "#e2c066", margin: "18px 0 8px", fontSize: "1.15em", fontFamily: "'Cormorant Garamond', serif" }} dangerouslySetInnerHTML={{ __html: html.slice(3) }} />;
+        if (line.startsWith("# "))
+          return <h1 key={i} style={{ color: "#e2c066", margin: "20px 0 10px", fontSize: "1.3em", fontFamily: "'Cormorant Garamond', serif" }} dangerouslySetInnerHTML={{ __html: html.slice(2) }} />;
+        if (line.startsWith("- "))
+          return <div key={i} style={{ paddingLeft: 18, position: "relative" }}><span style={{ position: "absolute", left: 4, color: "#e2c066" }}>›</span><span dangerouslySetInnerHTML={{ __html: html.slice(2) }} /></div>;
+        if (line.trim() === "") return <div key={i} style={{ height: 8 }} />;
+        return <div key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+      })}
+    </div>
+  );
+}
 
 export default function Home() {
   const [stage, setStage] = useState<Stage>("input");
   const [payload, setPayload] = useState<SubmitPayload | null>(null);
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
+  const [solveResult, setSolveResult] = useState<SolveResult | null>(null);
   const [error, setError] = useState("");
 
   const handleSubmit = async (data: SubmitPayload) => {
@@ -53,15 +87,41 @@ export default function Home() {
     }
   };
 
-  const handleApprove = () => {
-    // Step 3 will hook in here — solve call
-    console.log("Approved! Ready to solve.");
+  const handleApprove = async () => {
+    if (!classifyResult || !payload) return;
+    setStage("solving");
+
+    try {
+      const res = await fetch("/api/solve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: payload.question,
+          difficulty: classifyResult.classification.difficulty,
+          subject: payload.subject,
+        }),
+      });
+      const result = await res.json();
+
+      if (result.error) {
+        setError(result.error);
+        setStage("error");
+        return;
+      }
+
+      setSolveResult(result);
+      setStage("done");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Solve failed");
+      setStage("error");
+    }
   };
 
   const handleReset = () => {
     setStage("input");
     setPayload(null);
     setClassifyResult(null);
+    setSolveResult(null);
     setError("");
   };
 
@@ -70,6 +130,8 @@ export default function Home() {
     medium: { label: "Multi-step", icon: "◆◆", color: "#f59e0b" },
     hard: { label: "Complex", icon: "◆◆◆", color: "#ef4444" },
   };
+
+  const totalCost = (classifyResult?.classifyCost || 0) + (solveResult?.actualCost || 0);
 
   return (
     <main style={{ maxWidth: 620, margin: "0 auto", padding: "36px 20px 60px" }}>
@@ -101,11 +163,9 @@ export default function Home() {
           borderRadius: 12, padding: 22, animation: "fd 0.4s ease-out",
         }}>
           <div className="badge">{payload.subject}</div>
-          {payload.question && (
-            <div style={{ fontSize: 13, color: "var(--text-bright)", lineHeight: 1.6, marginBottom: 10, whiteSpace: "pre-wrap" }}>
-              {payload.question}
-            </div>
-          )}
+          <div style={{ fontSize: 13, color: "var(--text-bright)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+            {payload.question}
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18, fontSize: 12, color: "var(--gold-dim)" }}>
             <div className="spinner" />
             Classifying difficulty...
@@ -116,7 +176,6 @@ export default function Home() {
       {/* Stage: Approval */}
       {stage === "approval" && classifyResult && payload && (
         <div style={{ animation: "fd 0.4s ease-out" }}>
-          {/* Question recap */}
           <div style={{
             background: "var(--bg-card)", border: "1.5px solid var(--border)",
             borderRadius: 12, padding: 22, marginBottom: 16,
@@ -127,7 +186,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Classification result */}
           <div style={{
             background: "var(--bg-card)", border: "1.5px solid var(--border)",
             borderRadius: 12, padding: 22, marginBottom: 16,
@@ -152,53 +210,103 @@ export default function Home() {
 
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontSize: 10, color: "var(--text-dim)", letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 4 }}>Model</div>
-                <div style={{ fontSize: 13, color: "var(--text-bright)" }}>{classifyResult.model.label}</div>
+                <div className="stat-label">Model</div>
+                <div className="stat-value">{classifyResult.model.label}</div>
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "var(--text-dim)", letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 4 }}>Est. Tokens</div>
-                <div style={{ fontSize: 13, color: "var(--text-bright)" }}>
-                  ~{classifyResult.estimatedInputTokens + classifyResult.estimatedOutputTokens}
-                </div>
+                <div className="stat-label">Est. Tokens</div>
+                <div className="stat-value">~{classifyResult.estimatedInputTokens + classifyResult.estimatedOutputTokens}</div>
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "var(--text-dim)", letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 4 }}>Est. Cost</div>
-                <div style={{ fontSize: 13, color: "var(--gold)", fontWeight: 600 }}>
+                <div className="stat-label">Est. Cost</div>
+                <div className="stat-value" style={{ color: "var(--gold)", fontWeight: 600 }}>
                   ${classifyResult.estimatedCost.toFixed(4)}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Approve / Reject buttons */}
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={handleReset} style={{
-              flex: 1, padding: 14,
-              background: "transparent",
-              border: "1.5px solid var(--border)",
-              borderRadius: 10,
-              color: "var(--text-dim)",
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 12, cursor: "pointer",
-              letterSpacing: 1, textTransform: "uppercase" as const,
-              transition: "all 0.2s",
-            }}>
-              Cancel
-            </button>
-            <button onClick={handleApprove} style={{
-              flex: 2, padding: 14,
-              background: "var(--gold)",
-              border: "none",
-              borderRadius: 10,
-              color: "var(--bg-deep)",
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 12, fontWeight: 500, cursor: "pointer",
-              letterSpacing: 1, textTransform: "uppercase" as const,
-              transition: "all 0.2s",
-            }}>
-              Approve & Solve →
-            </button>
+            <button onClick={handleReset} className="btn-secondary">Cancel</button>
+            <button onClick={handleApprove} className="btn-primary">Approve & Solve →</button>
           </div>
+        </div>
+      )}
+
+      {/* Stage: Solving */}
+      {stage === "solving" && payload && (
+        <div style={{
+          background: "var(--bg-card)", border: "1.5px solid var(--border)",
+          borderRadius: 12, padding: 22, animation: "fd 0.4s ease-out",
+        }}>
+          <div className="badge">{payload.subject}</div>
+          <div style={{ fontSize: 13, color: "var(--text-bright)", lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: 16 }}>
+            {payload.question}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "var(--gold-dim)" }}>
+            <div className="spinner" />
+            Solving with {classifyResult?.model.label}...
+          </div>
+        </div>
+      )}
+
+      {/* Stage: Done */}
+      {stage === "done" && solveResult && payload && classifyResult && (
+        <div style={{ animation: "fd 0.4s ease-out" }}>
+          {/* Question */}
+          <div style={{
+            background: "var(--bg-card)", border: "1.5px solid var(--border)",
+            borderRadius: 12, padding: 22, marginBottom: 16,
+          }}>
+            <div className="badge">{payload.subject}</div>
+            <div style={{ fontSize: 13, color: "var(--text-bright)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+              {payload.question}
+            </div>
+          </div>
+
+          {/* Solution */}
+          <div style={{
+            background: "var(--bg-card)", border: "1.5px solid var(--gold-dim)",
+            borderRadius: 12, padding: 22, marginBottom: 16,
+          }}>
+            <div className="label">Solution</div>
+            <div style={{ fontSize: 13, color: "var(--text-bright)" }}>
+              <RenderMarkdown text={solveResult.solution} />
+            </div>
+          </div>
+
+          {/* Cost breakdown */}
+          <div style={{
+            background: "var(--bg-card)", border: "1.5px solid var(--border)",
+            borderRadius: 12, padding: 22, marginBottom: 16,
+          }}>
+            <div className="label">Cost Breakdown</div>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <div>
+                <div className="stat-label">Classify</div>
+                <div className="stat-value">${classifyResult.classifyCost.toFixed(4)}</div>
+              </div>
+              <div>
+                <div className="stat-label">Solve</div>
+                <div className="stat-value">${solveResult.actualCost.toFixed(4)}</div>
+              </div>
+              <div>
+                <div className="stat-label">Total</div>
+                <div className="stat-value" style={{ color: "var(--gold)", fontWeight: 600 }}>
+                  ${totalCost.toFixed(4)}
+                </div>
+              </div>
+              <div>
+                <div className="stat-label">Tokens Used</div>
+                <div className="stat-value">{solveResult.inputTokens + solveResult.outputTokens}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* New question button */}
+          <button onClick={handleReset} className="btn-primary" style={{ width: "100%" }}>
+            New Question
+          </button>
         </div>
       )}
 
@@ -216,16 +324,7 @@ export default function Home() {
               {error}
             </div>
           </div>
-          <button onClick={handleReset} style={{
-            width: "100%", padding: 14,
-            background: "transparent",
-            border: "1.5px solid var(--border)",
-            borderRadius: 10,
-            color: "var(--text-dim)",
-            fontFamily: "'DM Mono', monospace",
-            fontSize: 12, cursor: "pointer",
-            letterSpacing: 1, textTransform: "uppercase" as const,
-          }}>
+          <button onClick={handleReset} className="btn-secondary" style={{ width: "100%" }}>
             Try Again
           </button>
         </div>
@@ -243,6 +342,32 @@ export default function Home() {
           color: var(--gold); border: 1px solid var(--gold-dim);
           border-radius: 4px; padding: 3px 8px; margin-bottom: 14px;
         }
+        .stat-label {
+          font-size: 10px; color: var(--text-dim);
+          letter-spacing: 1px; text-transform: uppercase;
+          margin-bottom: 4px;
+        }
+        .stat-value {
+          font-size: 13px; color: var(--text-bright);
+        }
+        .btn-primary {
+          flex: 2; padding: 14px;
+          background: var(--gold); border: none; border-radius: 10px;
+          color: var(--bg-deep); font-family: 'DM Mono', monospace;
+          font-size: 12px; font-weight: 500; cursor: pointer;
+          letter-spacing: 1px; text-transform: uppercase;
+          transition: all 0.2s;
+        }
+        .btn-primary:hover { background: #ecd080; box-shadow: 0 4px 24px rgba(226,192,102,0.18); }
+        .btn-secondary {
+          flex: 1; padding: 14px;
+          background: transparent; border: 1.5px solid var(--border);
+          border-radius: 10px; color: var(--text-dim);
+          font-family: 'DM Mono', monospace; font-size: 12px;
+          cursor: pointer; letter-spacing: 1px; text-transform: uppercase;
+          transition: all 0.2s;
+        }
+        .btn-secondary:hover { border-color: var(--text-dim); }
         .spinner {
           width: 15px; height: 15px;
           border: 2px solid var(--border);
