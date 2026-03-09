@@ -114,6 +114,7 @@ export default function Home() {
           question: payload.question,
           difficulty: classifyResult.classification.difficulty,
           subject: payload.subject,
+          topic: classifyResult.classification.subject,
         }),
       });
       const result = await res.json();
@@ -146,6 +147,7 @@ export default function Home() {
           studentAnswer,
           subject: payload.subject,
           difficulty: classifyResult.classification.difficulty,
+          topic: classifyResult.classification.subject,
         }),
       });
       const result = await res.json();

@@ -26,7 +26,7 @@ const COMPARE_PROMPT = [
 
 export async function POST(req: NextRequest) {
   try {
-    const { question, claudeAnswer, studentAnswer, subject, difficulty } = await req.json();
+    const { question, claudeAnswer, studentAnswer, subject, difficulty, topic } = await req.json();
 
     if (!studentAnswer?.trim()) {
       return NextResponse.json({ error: "No student answer provided" }, { status: 400 });
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
     const { error: dbError } = await supabase.from("learnings").insert({
       subject,
       difficulty,
+      topic: topic || null,
       question,
       claude_answer: claudeAnswer,
       student_answer: studentAnswer,
