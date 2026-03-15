@@ -4,7 +4,7 @@
 
 Submit a finance question → Haiku classifies difficulty → the appropriate Claude model solves it step-by-step → you can submit the textbook answer → the system compares, logs its errors, and injects past mistakes into future prompts.
 
-![Demo Screenshot](assets/demo-screenshot.png)
+![Demo Screenshot](assets/demo-screenshot_finance_tutor.png)
 <!-- Replace with actual screenshot -->
 
 **[Try the Live Demo →](your-vercel-url)**
