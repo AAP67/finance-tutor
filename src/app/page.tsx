@@ -96,6 +96,22 @@ export default function Home() {
 
       setClassifyResult(result);
       setStage("approval");
+      // Signal to Francium parent
+      try {
+        window.parent.postMessage({
+          type: 'francium_signal',
+          toolId: 'finance-tutor',
+          event: 'question_submitted',
+          data: {
+            subject: data.subject,
+            question: data.question.slice(0, 300),
+            difficulty: result.classification.difficulty,
+            topic: result.classification.subject,
+            model: result.model.label,
+            estimatedCost: result.estimatedCost,
+          }
+        }, '*');
+      } catch (e) { /* silent */ }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setStage("error");
@@ -127,6 +143,20 @@ export default function Home() {
 
       setSolveResult(result);
       setStage("done");
+      // Signal to Francium parent
+      try {
+        window.parent.postMessage({
+          type: 'francium_signal',
+          toolId: 'finance-tutor',
+          event: 'solution_received',
+          data: {
+            model: result.model,
+            actualCost: result.actualCost,
+            difficulty: classifyResult.classification.difficulty,
+            topic: classifyResult.classification.subject,
+          }
+        }, '*');
+      } catch (e) { /* silent */ }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Solve failed");
       setStage("error");
@@ -160,6 +190,21 @@ export default function Home() {
 
       setCompareResult(result);
       setStage("feedback");
+      // Signal to Francium parent
+      try {
+        window.parent.postMessage({
+          type: 'francium_signal',
+          toolId: 'finance-tutor',
+          event: 'feedback_submitted',
+          data: {
+            claude_correct: result.comparison.claude_correct,
+            mistake_type: result.comparison.mistake_type,
+            lesson_stored: result.stored,
+            topic: classifyResult.classification.subject,
+            difficulty: classifyResult.classification.difficulty,
+          }
+        }, '*');
+      } catch (e) { /* silent */ }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Compare failed");
       setStage("error");
