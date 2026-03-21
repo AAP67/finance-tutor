@@ -41,6 +41,12 @@ interface CompareResult {
 
 type Stage = "input" | "classifying" | "approval" | "solving" | "done" | "comparing" | "feedback" | "error";
 
+interface FollowUpMessage {
+  role: "user" | "assistant";
+  content: string;
+  cost?: number;
+}
+
 function RenderMarkdown({ text }: { text: string }) {
   const lines = text.split("\n");
   return (
@@ -74,6 +80,10 @@ export default function Home() {
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const [studentAnswer, setStudentAnswer] = useState("");
   const [error, setError] = useState("");
+  const [followUps, setFollowUps] = useState<FollowUpMessage[]>([]);
+  const [followUpInput, setFollowUpInput] = useState("");
+  const [followUpLoading, setFollowUpLoading] = useState(false);
+  const [followUpTotalCost, setFollowUpTotalCost] = useState(0);
 
   const handleSubmit = async (data: SubmitPayload) => {
     setPayload(data);
@@ -224,6 +234,58 @@ export default function Home() {
     setCompareResult(null);
     setStudentAnswer("");
     setError("");
+    setFollowUps([]);
+    setFollowUpInput("");
+    setFollowUpLoading(false);
+    setFollowUpTotalCost(0);
+  };
+
+  const handleFollowUp = async () => {
+    if (!followUpInput.trim() || !payload || !solveResult || !classifyResult) return;
+    setFollowUpLoading(true);
+
+    // Build messages array: original question + solution + all follow-ups + new question
+    const messages: { role: "user" | "assistant"; content: string }[] = [
+      { role: "user", content: payload.question || "Solve the problem from the uploaded file." },
+      { role: "assistant", content: solveResult.solution },
+      ...followUps.map(f => ({ role: f.role, content: f.content })),
+      { role: "user" as const, content: followUpInput },
+    ];
+
+    // Add user message to display immediately
+    setFollowUps(prev => [...prev, { role: "user", content: followUpInput }]);
+    const question = followUpInput;
+    setFollowUpInput("");
+
+    try {
+      const res = await fetch("/api/followup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages,
+          difficulty: classifyResult.classification.difficulty,
+          subject: payload.subject,
+        }),
+      });
+      const result = await res.json();
+
+      if (result.error) {
+        setFollowUps(prev => [...prev, { role: "assistant", content: `Error: ${result.error}` }]);
+      } else {
+        setFollowUps(prev => [...prev, {
+          role: "assistant",
+          content: result.response,
+          cost: result.followupCost,
+        }]);
+        setFollowUpTotalCost(prev => prev + (result.followupCost || 0));
+      }
+    } catch (err) {
+      setFollowUps(prev => [...prev, {
+        role: "assistant",
+        content: `Error: ${err instanceof Error ? err.message : "Follow-up failed"}`,
+      }]);
+    }
+    setFollowUpLoading(false);
   };
 
   const difficultyConfig: Record<string, { label: string; icon: string; color: string }> = {
@@ -235,7 +297,8 @@ export default function Home() {
   const totalCost =
     (classifyResult?.classifyCost || 0) +
     (solveResult?.actualCost || 0) +
-    (compareResult?.compareCost || 0);
+    (compareResult?.compareCost || 0) +
+    followUpTotalCost;
 
   return (
     <main style={{ maxWidth: 620, margin: "0 auto", padding: "36px 20px 60px" }}>
@@ -378,6 +441,83 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Follow-up conversation */}
+          {followUps.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              {followUps.map((msg, i) => (
+                <div key={i} style={{
+                  background: msg.role === "user" ? "var(--bg-deep)" : "var(--bg-card)",
+                  border: `1.5px solid ${msg.role === "assistant" ? "var(--gold-dim)" : "var(--border)"}`,
+                  borderRadius: 12, padding: 16, marginBottom: 8,
+                }}>
+                  <div style={{
+                    fontSize: 10, color: msg.role === "user" ? "var(--text-dim)" : "var(--gold-dim)",
+                    letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 8,
+                  }}>
+                    {msg.role === "user" ? "You" : "Tutor"}
+                    {msg.cost ? ` · $${msg.cost.toFixed(4)}` : ""}
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--text-bright)" }}>
+                    {msg.role === "assistant" ? <RenderMarkdown text={msg.content} /> : msg.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Follow-up input — available in done and feedback stages */}
+          {(stage === "done" || stage === "feedback") && (
+            <div style={{
+              background: "var(--bg-card)", border: "1.5px solid var(--border)",
+              borderRadius: 12, padding: 16, marginBottom: 16,
+            }}>
+              <div className="label">Ask a follow-up</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <input
+                  type="text"
+                  placeholder="Explain step 2 differently... / What if the rate was 10%?..."
+                  value={followUpInput}
+                  onChange={(e) => setFollowUpInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && followUpInput.trim()) handleFollowUp(); }}
+                  disabled={followUpLoading}
+                  style={{
+                    flex: 1, padding: 12,
+                    background: "var(--bg-deep)", border: "1.5px solid var(--border)",
+                    borderRadius: 8, color: "var(--text-bright)",
+                    fontFamily: "'DM Mono', monospace", fontSize: 12,
+                    outline: "none",
+                  }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = "var(--gold-dim)"}
+                  onBlur={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+                />
+                <button
+                  onClick={handleFollowUp}
+                  disabled={!followUpInput.trim() || followUpLoading}
+                  className="btn-primary"
+                  style={{
+                    padding: "12px 20px", flex: "none",
+                    opacity: followUpInput.trim() && !followUpLoading ? 1 : 0.3,
+                  }}
+                >
+                  {followUpLoading ? "..." : "Ask"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Follow-up loading spinner */}
+          {followUpLoading && (
+            <div style={{
+              background: "var(--bg-card)", border: "1.5px solid var(--border)",
+              borderRadius: 12, padding: 16, marginBottom: 16,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "var(--gold-dim)" }}>
+                <div className="spinner" />
+                Thinking about your follow-up...
+              </div>
+            </div>
+          )}
+
           {/* Feedback section */}
           {stage === "done" && (
             <div style={{
@@ -499,6 +639,12 @@ export default function Home() {
                   <div>
                     <div className="stat-label">Compare</div>
                     <div className="stat-value">${compareResult.compareCost.toFixed(4)}</div>
+                  </div>
+                )}
+                {followUpTotalCost > 0 && (
+                  <div>
+                    <div className="stat-label">Follow-ups ({followUps.filter(f => f.role === "assistant").length})</div>
+                    <div className="stat-value">${followUpTotalCost.toFixed(4)}</div>
                   </div>
                 )}
                 <div>

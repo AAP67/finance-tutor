@@ -94,3 +94,55 @@ export async function callClaude({
     outputTokens: data.usage?.output_tokens || 0,
   };
 }
+
+// Multi-turn conversation support
+export interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface ClaudeMultiTurnRequest {
+  model: string;
+  system: string;
+  messages: Message[];
+  maxTokens?: number;
+}
+
+export async function callClaudeMultiTurn({
+  model,
+  system,
+  messages,
+  maxTokens = 4000,
+}: ClaudeMultiTurnRequest): Promise<ClaudeResponse> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || apiKey === "your_key_here") {
+    throw new Error("ANTHROPIC_API_KEY not set");
+  }
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      system,
+      messages,
+    }),
+  });
+
+  const data = await res.json();
+
+  if (data.error) {
+    throw new Error(data.error.message || "Claude API error");
+  }
+
+  return {
+    text: data.content.map((b: { text?: string }) => b.text || "").join("\n"),
+    inputTokens: data.usage?.input_tokens || 0,
+    outputTokens: data.usage?.output_tokens || 0,
+  };
+}
