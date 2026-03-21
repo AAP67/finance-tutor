@@ -265,6 +265,7 @@ export default function Home() {
           messages,
           difficulty: classifyResult.classification.difficulty,
           subject: payload.subject,
+          mode: payload.mode,
         }),
       });
       const result = await res.json();
@@ -435,7 +436,7 @@ export default function Home() {
             background: "var(--bg-card)", border: "1.5px solid var(--gold-dim)",
             borderRadius: 12, padding: 22, marginBottom: 16,
           }}>
-            <div className="label">Solution</div>
+            <div className="label">{payload.mode === "guide" ? "Guided Exploration" : "Solution"}</div>
             <div style={{ fontSize: 13, color: "var(--text-bright)" }}>
               <RenderMarkdown text={solveResult.solution} />
             </div>
