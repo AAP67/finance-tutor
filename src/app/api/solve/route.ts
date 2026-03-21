@@ -28,6 +28,7 @@ const MODELS: Record<string, string> = {
 };
 
 async function fetchRelevantLearnings(topic: string, subject: string) {
+  if (!supabase) return [];
   try {
     // First try exact topic match
     const { data: topicData } = await supabase

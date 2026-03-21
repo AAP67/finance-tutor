@@ -48,27 +48,32 @@ export async function POST(req: NextRequest) {
       (result.inputTokens / 1000) * 0.001 +
       (result.outputTokens / 1000) * 0.005;
 
-    const { error: dbError } = await supabase.from("learnings").insert({
-      subject,
-      difficulty,
-      topic: topic || null,
-      question,
-      claude_answer: claudeAnswer,
-      student_answer: studentAnswer,
-      comparison: comparison.explanation,
-      was_correct: comparison.claude_correct,
-      mistake_type: comparison.mistake_type === "none" ? null : comparison.mistake_type,
-      lesson: comparison.lesson,
-    });
+    let stored = false;
+    if (supabase) {
+      const { error: dbError } = await supabase.from("learnings").insert({
+        subject,
+        difficulty,
+        topic: topic || null,
+        question,
+        claude_answer: claudeAnswer,
+        student_answer: studentAnswer,
+        comparison: comparison.explanation,
+        was_correct: comparison.claude_correct,
+        mistake_type: comparison.mistake_type === "none" ? null : comparison.mistake_type,
+        lesson: comparison.lesson,
+      });
 
-    if (dbError) {
-      console.error("Supabase insert error:", dbError);
+      if (dbError) {
+        console.error("Supabase insert error:", dbError);
+      } else {
+        stored = true;
+      }
     }
 
     return NextResponse.json({
       comparison,
       compareCost: Number(compareCost.toFixed(6)),
-      stored: !dbError,
+      stored,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Comparison failed";

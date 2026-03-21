@@ -3,6 +3,10 @@ import { supabase } from "../../../lib/supabase";
 
 export async function GET() {
   try {
+    if (!supabase) {
+      return NextResponse.json({ learnings: [], message: "Supabase not configured" });
+    }
+
     const { data, error } = await supabase
       .from("learnings")
       .select("question, mistake_type, lesson, subject, difficulty")
