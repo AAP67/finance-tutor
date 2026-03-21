@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callClaude } from "../../../lib/claude";
 import { supabase } from "../../../lib/supabase";
+import { getTopicTemplate } from "../../../lib/topicTemplates";
 
 const BASE_PROMPT = (difficulty: string, subject: string) =>
   `You are an expert finance tutor. Solve the following question step-by-step.
@@ -20,6 +21,24 @@ Rules:
 - End with a "## Key Takeaway" the student should remember
 - Match explanation depth to difficulty: simple for easy, thorough for hard
 - Be precise with numbers. Double-check your arithmetic.`;
+
+const GUIDE_PROMPT = (difficulty: string, subject: string) =>
+  `You are a Socratic finance tutor. Do NOT solve the problem. Instead, guide the student to discover the answer themselves.
+
+Subject area: ${subject}
+Difficulty level: ${difficulty}
+
+Rules:
+- First, identify what type of problem this is (1 sentence)
+- Ask the student what formula or concept they think applies — do NOT state it yourself
+- Give a small hint to point them in the right direction
+- NEVER show the calculation or the final answer
+- NEVER use LaTeX, $$, \\frac, \\times, \\cdot, or any LaTeX notation
+- End with a specific question the student should try to answer
+- Keep your response short — 4-6 sentences max
+- If the student has already attempted an answer in the question, evaluate their approach and guide them to fix any errors without giving the answer
+
+Your goal: help them learn by doing, not by reading a solution.`;
 
 const MODELS: Record<string, string> = {
   easy: "claude-haiku-4-5-20251001",
@@ -60,7 +79,7 @@ async function fetchRelevantLearnings(topic: string, subject: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { question, difficulty, subject, topic, files } = await req.json();
+    const { question, difficulty, subject, topic, files, mode } = await req.json();
 
     if (!question && (!files || files.length === 0)) {
       return NextResponse.json({ error: "No question provided" }, { status: 400 });
@@ -68,13 +87,14 @@ export async function POST(req: NextRequest) {
 
     const diff = difficulty || "medium";
     const sub = subject || "finance";
+    const tutorMode = mode || "solve";
     const model = MODELS[diff] || MODELS.medium;
 
     // Fetch past mistakes for this topic
     const learnings = await fetchRelevantLearnings(topic || sub, sub);
 
-    // Build system prompt with learnings
-    let systemPrompt = BASE_PROMPT(diff, sub);
+    // Build system prompt based on mode
+    let systemPrompt = tutorMode === "guide" ? GUIDE_PROMPT(diff, sub) : BASE_PROMPT(diff, sub);
 
     if (learnings.length > 0) {
       systemPrompt += "\n\n## Past Mistakes to Avoid\nYou have made errors on similar questions before. Be extra careful about:\n";
@@ -83,6 +103,12 @@ export async function POST(req: NextRequest) {
         if (l.mistake_type) systemPrompt += "[" + l.mistake_type + "] ";
         systemPrompt += l.lesson;
       });
+    }
+
+    // Inject topic-specific instructions
+    const topicTemplate = getTopicTemplate(topic || "");
+    if (topicTemplate) {
+      systemPrompt += "\n\n## Topic-Specific Instructions\nFor this type of problem, follow these additional rules:" + topicTemplate;
     }
 
     const result = await callClaude({

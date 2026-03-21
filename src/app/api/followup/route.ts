@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callClaudeMultiTurn, Message } from "../../../lib/claude";
+import { getTopicTemplate } from "../../../lib/topicTemplates";
 
 const FOLLOWUP_SYSTEM = (subject: string, difficulty: string) =>
   `You are an expert finance tutor continuing a conversation with a student.
@@ -17,6 +18,22 @@ Rules:
 - Bold key answers using **answer**
 - Be concise — the student already has the full solution, they need clarification not repetition`;
 
+const FOLLOWUP_GUIDE_SYSTEM = (subject: string, difficulty: string) =>
+  `You are a Socratic finance tutor continuing a guided conversation with a student.
+
+Subject area: ${subject}
+Difficulty level: ${difficulty}
+
+Rules:
+- Evaluate the student's response — is their reasoning correct?
+- If correct, praise briefly and guide them to the next step
+- If incorrect, explain why gently WITHOUT giving the answer, then ask them to try again
+- Give one small hint if they're stuck
+- NEVER show the full calculation or final answer unless the student has worked through all steps
+- NEVER use LaTeX, $$, \\frac, \\times, or any LaTeX notation
+- If the student explicitly asks "just tell me the answer" or "solve it for me", then provide the full solution
+- Keep responses to 3-5 sentences — stay focused and conversational`;
+
 const MODELS: Record<string, string> = {
   easy: "claude-haiku-4-5-20251001",
   medium: "claude-sonnet-4-20250514",
@@ -25,7 +42,7 @@ const MODELS: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, difficulty, subject } = await req.json();
+    const { messages, difficulty, subject, mode, topic } = await req.json();
 
     if (!messages || messages.length === 0) {
       return NextResponse.json({ error: "No messages provided" }, { status: 400 });
@@ -33,11 +50,22 @@ export async function POST(req: NextRequest) {
 
     const diff = difficulty || "medium";
     const sub = subject || "finance";
+    const tutorMode = mode || "solve";
     const model = MODELS[diff] || MODELS.medium;
+
+    let systemPrompt = tutorMode === "guide"
+      ? FOLLOWUP_GUIDE_SYSTEM(sub, diff)
+      : FOLLOWUP_SYSTEM(sub, diff);
+
+    // Inject topic-specific instructions
+    const topicTemplate = getTopicTemplate(topic || "");
+    if (topicTemplate) {
+      systemPrompt += "\n\nTopic-specific rules:" + topicTemplate;
+    }
 
     const result = await callClaudeMultiTurn({
       model,
-      system: FOLLOWUP_SYSTEM(sub, diff),
+      system: systemPrompt,
       messages: messages as Message[],
       maxTokens: diff === "easy" ? 1000 : 2000,
     });

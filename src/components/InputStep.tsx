@@ -15,6 +15,7 @@ export interface SubmitPayload {
   subject: string;
   question: string;
   files: FileData[];
+  mode: "solve" | "guide";
 }
 
 interface Props {
@@ -35,6 +36,7 @@ export default function InputStep({ onSubmit }: Props) {
   const [question, setQuestion] = useState("");
   const [files, setFiles] = useState<FileData[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [mode, setMode] = useState<"solve" | "guide">("solve");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = async (fileList: FileList) => {
@@ -77,7 +79,7 @@ export default function InputStep({ onSubmit }: Props) {
 
   const handleSubmit = () => {
     if (!canSubmit || !subject) return;
-    onSubmit({ subject, question, files });
+    onSubmit({ subject, question, files, mode });
   };
 
   const formatSize = (bytes: number) => {
@@ -228,6 +230,69 @@ export default function InputStep({ onSubmit }: Props) {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Mode Toggle */}
+      <div style={{ marginBottom: 22, animation: "fd 0.5s ease-out 0.28s both" }}>
+        <div className="label">Tutor Mode</div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={() => setMode("solve")}
+            style={{
+              flex: 1,
+              background: mode === "solve" ? "var(--bg-hover)" : "var(--bg-card)",
+              border: `1.5px solid ${mode === "solve" ? "var(--gold)" : "var(--border)"}`,
+              borderRadius: 10,
+              padding: "12px 10px",
+              cursor: "pointer",
+              textAlign: "center",
+              transition: "all 0.2s",
+              boxShadow: mode === "solve" ? "0 0 20px rgba(226,192,102,0.07)" : "none",
+            }}
+          >
+            <div style={{
+              fontSize: 15,
+              color: mode === "solve" ? "var(--gold)" : "var(--text-dim)",
+              marginBottom: 4,
+            }}>⚡</div>
+            <div style={{
+              fontSize: 11,
+              color: mode === "solve" ? "var(--text-bright)" : "var(--text-dim)",
+              fontFamily: "'DM Mono', monospace",
+            }}>Solve for me</div>
+            <div style={{ fontSize: 9, color: "var(--text-dim)", marginTop: 3 }}>
+              Full solution immediately
+            </div>
+          </button>
+          <button
+            onClick={() => setMode("guide")}
+            style={{
+              flex: 1,
+              background: mode === "guide" ? "var(--bg-hover)" : "var(--bg-card)",
+              border: `1.5px solid ${mode === "guide" ? "var(--gold)" : "var(--border)"}`,
+              borderRadius: 10,
+              padding: "12px 10px",
+              cursor: "pointer",
+              textAlign: "center",
+              transition: "all 0.2s",
+              boxShadow: mode === "guide" ? "0 0 20px rgba(226,192,102,0.07)" : "none",
+            }}
+          >
+            <div style={{
+              fontSize: 15,
+              color: mode === "guide" ? "var(--gold)" : "var(--text-dim)",
+              marginBottom: 4,
+            }}>🧭</div>
+            <div style={{
+              fontSize: 11,
+              color: mode === "guide" ? "var(--text-bright)" : "var(--text-dim)",
+              fontFamily: "'DM Mono', monospace",
+            }}>Guide me</div>
+            <div style={{ fontSize: 9, color: "var(--text-dim)", marginTop: 3 }}>
+              Step-by-step hints
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Submit */}

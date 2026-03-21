@@ -146,6 +146,7 @@ export default function Home() {
           subject: payload.subject,
           topic: classifyResult.classification.subject,
           files: payload.files.map(f => ({ base64: f.base64, mediaType: f.mediaType })),
+          mode: payload.mode,
         }),
       });
       const result = await res.json();
@@ -266,6 +267,7 @@ export default function Home() {
           difficulty: classifyResult.classification.difficulty,
           subject: payload.subject,
           mode: payload.mode,
+          topic: classifyResult.classification.subject,
         }),
       });
       const result = await res.json();
