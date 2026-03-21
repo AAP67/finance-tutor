@@ -84,7 +84,11 @@ export default function Home() {
       const res = await fetch("/api/classify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: data.question, subject: data.subject }),
+        body: JSON.stringify({
+          question: data.question,
+          subject: data.subject,
+          files: data.files.map(f => ({ base64: f.base64, mediaType: f.mediaType })),
+        }),
       });
       const result = await res.json();
 
@@ -131,6 +135,7 @@ export default function Home() {
           difficulty: classifyResult.classification.difficulty,
           subject: payload.subject,
           topic: classifyResult.classification.subject,
+          files: payload.files.map(f => ({ base64: f.base64, mediaType: f.mediaType })),
         }),
       });
       const result = await res.json();

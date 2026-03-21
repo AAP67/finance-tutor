@@ -59,9 +59,9 @@ async function fetchRelevantLearnings(topic: string, subject: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { question, difficulty, subject, topic } = await req.json();
+    const { question, difficulty, subject, topic, files } = await req.json();
 
-    if (!question) {
+    if (!question && (!files || files.length === 0)) {
       return NextResponse.json({ error: "No question provided" }, { status: 400 });
     }
 
@@ -87,7 +87,8 @@ export async function POST(req: NextRequest) {
     const result = await callClaude({
       model,
       system: systemPrompt,
-      userMessage: question,
+      userMessage: question || "Solve the problem shown in the attached file.",
+      files: files || [],
       maxTokens: diff === "easy" ? 1500 : diff === "medium" ? 3000 : 4000,
     });
 

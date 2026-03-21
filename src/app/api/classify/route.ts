@@ -23,9 +23,9 @@ const OUTPUT_ESTIMATES = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { question, subject } = await req.json();
+    const { question, subject, files } = await req.json();
 
-    if (!question && !subject) {
+    if (!question && !subject && (!files || files.length === 0)) {
       return NextResponse.json({ error: "No question provided" }, { status: 400 });
     }
 
@@ -33,7 +33,8 @@ export async function POST(req: NextRequest) {
     const result = await callClaude({
       model: "claude-haiku-4-5-20251001",
       system: CLASSIFY_PROMPT,
-      userMessage: question,
+      userMessage: question || "Classify the problem shown in the attached file.",
+      files: files || [],
       maxTokens: 200,
     });
 
