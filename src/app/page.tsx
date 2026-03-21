@@ -84,6 +84,30 @@ export default function Home() {
   const [followUpInput, setFollowUpInput] = useState("");
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [followUpTotalCost, setFollowUpTotalCost] = useState(0);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [dashboardData, setDashboardData] = useState<{
+    stats: { total: number; correct: number; incorrect: number; accuracyRate: number; mistakeTypes: Record<string, number>; topicAccuracy: { topic: string; total: number; correct: number; accuracy: number }[] } | null;
+    learnings: { question: string; mistake_type: string; lesson: string; subject: string; difficulty: string; topic: string }[];
+    history: { date: string; total: number; correct: number; questions: string[] }[];
+  } | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+
+  const fetchDashboard = async () => {
+    setDashboardLoading(true);
+    try {
+      const res = await fetch("/api/learnings?view=all");
+      const data = await res.json();
+      setDashboardData(data);
+    } catch {
+      setDashboardData(null);
+    }
+    setDashboardLoading(false);
+  };
+
+  const toggleDashboard = () => {
+    if (!showDashboard) fetchDashboard();
+    setShowDashboard(!showDashboard);
+  };
 
   const handleSubmit = async (data: SubmitPayload) => {
     setPayload(data);
@@ -306,22 +330,209 @@ export default function Home() {
   return (
     <main style={{ maxWidth: 620, margin: "0 auto", padding: "36px 20px 60px" }}>
       {/* Header */}
-      <div style={{ marginBottom: 44, animation: "fd 0.5s ease-out" }}>
-        <h1 style={{
-          fontFamily: "'Cormorant Garamond', serif",
-          fontSize: 30, fontWeight: 700,
-          color: "var(--text-bright)",
-          letterSpacing: -0.5, marginBottom: 4,
-        }}>
-          Finance <span style={{ color: "var(--gold)" }}>Tutor</span>
-        </h1>
-        <div style={{
-          fontSize: 11, color: "var(--text-dim)",
-          letterSpacing: 2, textTransform: "uppercase" as const,
-        }}>
-          Self-correcting · Multi-model · Step-by-step
+      <div style={{ marginBottom: 44, animation: "fd 0.5s ease-out", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h1 style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 30, fontWeight: 700,
+            color: "var(--text-bright)",
+            letterSpacing: -0.5, marginBottom: 4,
+          }}>
+            Finance <span style={{ color: "var(--gold)" }}>Tutor</span>
+          </h1>
+          <div style={{
+            fontSize: 11, color: "var(--text-dim)",
+            letterSpacing: 2, textTransform: "uppercase" as const,
+          }}>
+            Self-correcting · Multi-model · Step-by-step
+          </div>
         </div>
+        <button
+          onClick={toggleDashboard}
+          style={{
+            background: showDashboard ? "var(--gold-dim)" : "var(--bg-card)",
+            border: `1.5px solid ${showDashboard ? "var(--gold)" : "var(--border)"}`,
+            borderRadius: 8, padding: "8px 14px",
+            color: showDashboard ? "var(--bg-deep)" : "var(--text-dim)",
+            fontFamily: "'DM Mono', monospace", fontSize: 11,
+            cursor: "pointer", letterSpacing: 1,
+            textTransform: "uppercase" as const,
+            transition: "all 0.2s",
+          }}
+        >
+          {showDashboard ? "✕ Close" : "📊 Learnings"}
+        </button>
       </div>
+
+      {/* Dashboard Panel */}
+      {showDashboard && (
+        <div style={{ animation: "fd 0.4s ease-out", marginBottom: 32 }}>
+          {dashboardLoading ? (
+            <div style={{
+              background: "var(--bg-card)", border: "1.5px solid var(--border)",
+              borderRadius: 12, padding: 22, textAlign: "center",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 12, color: "var(--gold-dim)" }}>
+                <div className="spinner" />
+                Loading learnings...
+              </div>
+            </div>
+          ) : !dashboardData?.stats ? (
+            <div style={{
+              background: "var(--bg-card)", border: "1.5px solid var(--border)",
+              borderRadius: 12, padding: 22, textAlign: "center",
+            }}>
+              <div style={{ fontSize: 13, color: "var(--text-dim)" }}>
+                No data yet. Submit some questions and feedback to see learnings.
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Stats Overview */}
+              <div style={{
+                background: "var(--bg-card)", border: "1.5px solid var(--border)",
+                borderRadius: 12, padding: 22, marginBottom: 12,
+              }}>
+                <div className="label">Performance Overview</div>
+                <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 16 }}>
+                  <div>
+                    <div className="stat-label">Total Questions</div>
+                    <div className="stat-value" style={{ fontSize: 22 }}>{dashboardData.stats.total}</div>
+                  </div>
+                  <div>
+                    <div className="stat-label">Accuracy</div>
+                    <div className="stat-value" style={{
+                      fontSize: 22,
+                      color: dashboardData.stats.accuracyRate >= 80 ? "#22c55e"
+                        : dashboardData.stats.accuracyRate >= 60 ? "#f59e0b" : "var(--danger)",
+                    }}>{dashboardData.stats.accuracyRate}%</div>
+                  </div>
+                  <div>
+                    <div className="stat-label">Correct</div>
+                    <div className="stat-value" style={{ color: "#22c55e" }}>{dashboardData.stats.correct}</div>
+                  </div>
+                  <div>
+                    <div className="stat-label">Errors</div>
+                    <div className="stat-value" style={{ color: "var(--danger)" }}>{dashboardData.stats.incorrect}</div>
+                  </div>
+                </div>
+
+                {/* Mistake Types */}
+                {Object.keys(dashboardData.stats.mistakeTypes).length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div className="stat-label" style={{ marginBottom: 8 }}>Error Types</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {Object.entries(dashboardData.stats.mistakeTypes)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([type, count]) => (
+                          <div key={type} style={{
+                            background: "var(--bg-deep)", borderRadius: 6,
+                            padding: "6px 10px", fontSize: 11,
+                            color: "var(--text)",
+                          }}>
+                            <span style={{ color: "var(--danger)", fontWeight: 600 }}>{count}</span>
+                            {" "}{type.replace(/_/g, " ")}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Topic Accuracy */}
+                {dashboardData.stats.topicAccuracy.length > 0 && (
+                  <div>
+                    <div className="stat-label" style={{ marginBottom: 8 }}>Accuracy by Topic</div>
+                    {dashboardData.stats.topicAccuracy.slice(0, 8).map((t) => (
+                      <div key={t.topic} style={{
+                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                        padding: "6px 0", borderBottom: "1px solid var(--border)",
+                        fontSize: 12,
+                      }}>
+                        <span style={{ color: "var(--text)" }}>{t.topic}</span>
+                        <span style={{
+                          color: t.accuracy >= 80 ? "#22c55e" : t.accuracy >= 60 ? "#f59e0b" : "var(--danger)",
+                          fontWeight: 600, fontFamily: "'DM Mono', monospace",
+                        }}>
+                          {t.accuracy}% ({t.correct}/{t.total})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Mistakes */}
+              {dashboardData.learnings.length > 0 && (
+                <div style={{
+                  background: "var(--bg-card)", border: "1.5px solid var(--border)",
+                  borderRadius: 12, padding: 22, marginBottom: 12,
+                }}>
+                  <div className="label">Recent Mistakes & Lessons</div>
+                  {dashboardData.learnings.slice(0, 5).map((l, i) => (
+                    <div key={i} style={{
+                      borderBottom: i < 4 ? "1px solid var(--border)" : "none",
+                      padding: "10px 0",
+                    }}>
+                      <div style={{ fontSize: 12, color: "var(--text)", marginBottom: 4 }}>
+                        {l.question.slice(0, 100)}{l.question.length > 100 ? "..." : ""}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        {l.mistake_type && (
+                          <span style={{
+                            fontSize: 10, background: "rgba(239,68,68,0.15)",
+                            color: "var(--danger)", padding: "2px 6px",
+                            borderRadius: 4,
+                          }}>
+                            {l.mistake_type.replace(/_/g, " ")}
+                          </span>
+                        )}
+                        {l.lesson && (
+                          <span style={{ fontSize: 11, color: "var(--gold-dim)", fontStyle: "italic" }}>
+                            {l.lesson.slice(0, 80)}{l.lesson.length > 80 ? "..." : ""}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Session History */}
+              {dashboardData.history.length > 0 && (
+                <div style={{
+                  background: "var(--bg-card)", border: "1.5px solid var(--border)",
+                  borderRadius: 12, padding: 22,
+                }}>
+                  <div className="label">Session History</div>
+                  {dashboardData.history.slice(0, 7).map((s, i) => (
+                    <div key={i} style={{
+                      borderBottom: i < 6 ? "1px solid var(--border)" : "none",
+                      padding: "10px 0",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, color: "var(--text-bright)", fontWeight: 500 }}>
+                          {s.date}
+                        </span>
+                        <span style={{
+                          fontSize: 12, fontFamily: "'DM Mono', monospace",
+                          color: (s.correct / s.total) >= 0.8 ? "#22c55e" : (s.correct / s.total) >= 0.6 ? "#f59e0b" : "var(--danger)",
+                        }}>
+                          {s.correct}/{s.total} correct
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
+                        {s.questions.slice(0, 3).map((q, j) => (
+                          <div key={j} style={{ marginTop: 2 }}>› {q}</div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Stage: Input */}
       {stage === "input" && <InputStep onSubmit={handleSubmit} />}
