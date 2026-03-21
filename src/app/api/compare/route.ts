@@ -42,7 +42,9 @@ export async function POST(req: NextRequest) {
     });
 
     const cleaned = result.text.replace(/```json|```/g, "").trim();
-    const comparison = JSON.parse(cleaned);
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found in comparison response");
+    const comparison = JSON.parse(jsonMatch[0]);
 
     const compareCost =
       (result.inputTokens / 1000) * 0.001 +

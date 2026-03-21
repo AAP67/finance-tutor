@@ -40,7 +40,9 @@ export async function POST(req: NextRequest) {
 
     // Parse classification
     const cleaned = result.text.replace(/```json|```/g, "").trim();
-    const classification = JSON.parse(cleaned);
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found in classification response");
+    const classification = JSON.parse(jsonMatch[0]);
     const difficulty = classification.difficulty as "easy" | "medium" | "hard";
 
     // Calculate cost estimate
