@@ -737,6 +737,15 @@ export default function Home() {
                   ))}
                 </div>
               )}
+
+              {/* Export button */}
+              <button
+                onClick={() => window.open("/api/export", "_blank")}
+                className="btn-primary"
+                style={{ width: "100%", marginTop: 4 }}
+              >
+                📄 Export Study Notes
+              </button>
             </>
           )}
         </div>
