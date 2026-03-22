@@ -107,6 +107,87 @@ export default function Home() {
   const toggleDashboard = () => {
     if (!showDashboard) fetchDashboard();
     setShowDashboard(!showDashboard);
+    setShowPractice(false);
+  };
+
+  // Practice mode state
+  const [showPractice, setShowPractice] = useState(false);
+  const [practiceSubject, setPracticeSubject] = useState<string | null>(null);
+  const [practiceDifficulty, setPracticeDifficulty] = useState<string>("medium");
+  const [practiceTopic, setPracticeTopic] = useState<string>("");
+  const [practiceTopics, setPracticeTopics] = useState<string[]>([]);
+  const [practiceLoading, setPracticeLoading] = useState(false);
+
+  const fetchPracticeTopics = async (subject: string) => {
+    try {
+      const res = await fetch(`/api/practice?subject=${subject}`);
+      const data = await res.json();
+      setPracticeTopics(data.topics || []);
+    } catch {
+      setPracticeTopics([]);
+    }
+  };
+
+  const handlePracticeSubject = (subject: string) => {
+    setPracticeSubject(subject);
+    setPracticeTopic("");
+    fetchPracticeTopics(subject);
+  };
+
+  const togglePractice = () => {
+    setShowPractice(!showPractice);
+    setShowDashboard(false);
+  };
+
+  const generatePractice = async () => {
+    if (!practiceSubject) return;
+    setPracticeLoading(true);
+    try {
+      const res = await fetch("/api/practice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: practiceSubject,
+          difficulty: practiceDifficulty,
+          topic: practiceTopic,
+        }),
+      });
+      const data = await res.json();
+      if (data.question) {
+        // Pre-fill the question into the main input by simulating a submit
+        setShowPractice(false);
+        setPayload({
+          subject: practiceSubject,
+          question: data.question,
+          files: [],
+          mode: "solve",
+        });
+        // Go straight to classify
+        setStage("classifying");
+        setError("");
+        const classifyRes = await fetch("/api/classify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question: data.question,
+            subject: practiceSubject,
+            files: [],
+          }),
+        });
+        const classifyResult = await classifyRes.json();
+        if (classifyResult.error) {
+          setError(classifyResult.error);
+          setStage("error");
+        } else {
+          setClassifyResult(classifyResult);
+          setStage("approval");
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Practice generation failed");
+      setStage("error");
+    }
+    setPracticeLoading(false);
   };
 
   const handleSubmit = async (data: SubmitPayload) => {
@@ -347,22 +428,149 @@ export default function Home() {
             Self-correcting · Multi-model · Step-by-step
           </div>
         </div>
-        <button
-          onClick={toggleDashboard}
-          style={{
-            background: showDashboard ? "var(--gold-dim)" : "var(--bg-card)",
-            border: `1.5px solid ${showDashboard ? "var(--gold)" : "var(--border)"}`,
-            borderRadius: 8, padding: "8px 14px",
-            color: showDashboard ? "var(--bg-deep)" : "var(--text-dim)",
-            fontFamily: "'DM Mono', monospace", fontSize: 11,
-            cursor: "pointer", letterSpacing: 1,
-            textTransform: "uppercase" as const,
-            transition: "all 0.2s",
-          }}
-        >
-          {showDashboard ? "✕ Close" : "📊 Learnings"}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={togglePractice}
+            style={{
+              background: showPractice ? "var(--gold-dim)" : "var(--bg-card)",
+              border: `1.5px solid ${showPractice ? "var(--gold)" : "var(--border)"}`,
+              borderRadius: 8, padding: "8px 12px",
+              color: showPractice ? "var(--bg-deep)" : "var(--text-dim)",
+              fontFamily: "'DM Mono', monospace", fontSize: 10,
+              cursor: "pointer", letterSpacing: 1,
+              textTransform: "uppercase" as const,
+              transition: "all 0.2s",
+            }}
+          >
+            {showPractice ? "✕" : "🎯 Practice"}
+          </button>
+          <button
+            onClick={toggleDashboard}
+            style={{
+              background: showDashboard ? "var(--gold-dim)" : "var(--bg-card)",
+              border: `1.5px solid ${showDashboard ? "var(--gold)" : "var(--border)"}`,
+              borderRadius: 8, padding: "8px 12px",
+              color: showDashboard ? "var(--bg-deep)" : "var(--text-dim)",
+              fontFamily: "'DM Mono', monospace", fontSize: 10,
+              cursor: "pointer", letterSpacing: 1,
+              textTransform: "uppercase" as const,
+              transition: "all 0.2s",
+            }}
+          >
+            {showDashboard ? "✕" : "📊 Learnings"}
+          </button>
+        </div>
       </div>
+
+      {/* Practice Panel */}
+      {showPractice && (
+        <div style={{ animation: "fd 0.4s ease-out", marginBottom: 32 }}>
+          <div style={{
+            background: "var(--bg-card)", border: "1.5px solid var(--gold-dim)",
+            borderRadius: 12, padding: 22,
+          }}>
+            <div className="label">Generate Practice Question</div>
+
+            {/* Subject picker */}
+            <div style={{ fontSize: 10, color: "var(--text-dim)", letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 8 }}>Subject</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 16 }}>
+              {[
+                { id: "gmat", label: "GMAT" },
+                { id: "cfa", label: "CFA" },
+                { id: "finance", label: "Finance" },
+                { id: "series7", label: "Series 7" },
+                { id: "series24", label: "Series 24" },
+                { id: "statistics", label: "Stats" },
+                { id: "accounting", label: "Acctg" },
+                { id: "economics", label: "Econ" },
+              ].map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => handlePracticeSubject(s.id)}
+                  style={{
+                    padding: "8px 4px", fontSize: 10,
+                    background: practiceSubject === s.id ? "var(--bg-hover)" : "transparent",
+                    border: `1px solid ${practiceSubject === s.id ? "var(--gold)" : "var(--border)"}`,
+                    borderRadius: 6, cursor: "pointer",
+                    color: practiceSubject === s.id ? "var(--gold)" : "var(--text-dim)",
+                    fontFamily: "'DM Mono', monospace",
+                    transition: "all 0.2s",
+                  }}
+                >{s.label}</button>
+              ))}
+            </div>
+
+            {/* Difficulty */}
+            <div style={{ fontSize: 10, color: "var(--text-dim)", letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 8 }}>Difficulty</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {["easy", "medium", "hard"].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setPracticeDifficulty(d)}
+                  style={{
+                    flex: 1, padding: "8px", fontSize: 11,
+                    background: practiceDifficulty === d ? "var(--bg-hover)" : "transparent",
+                    border: `1px solid ${practiceDifficulty === d ? "var(--gold)" : "var(--border)"}`,
+                    borderRadius: 6, cursor: "pointer",
+                    color: practiceDifficulty === d ? "var(--gold)" : "var(--text-dim)",
+                    fontFamily: "'DM Mono', monospace",
+                    textTransform: "capitalize" as const,
+                    transition: "all 0.2s",
+                  }}
+                >{d}</button>
+              ))}
+            </div>
+
+            {/* Topic selector */}
+            {practiceTopics.length > 0 && (
+              <>
+                <div style={{ fontSize: 10, color: "var(--text-dim)", letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 8 }}>Topic (optional)</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+                  <button
+                    onClick={() => setPracticeTopic("")}
+                    style={{
+                      padding: "5px 10px", fontSize: 10,
+                      background: !practiceTopic ? "var(--bg-hover)" : "transparent",
+                      border: `1px solid ${!practiceTopic ? "var(--gold)" : "var(--border)"}`,
+                      borderRadius: 20, cursor: "pointer",
+                      color: !practiceTopic ? "var(--gold)" : "var(--text-dim)",
+                      fontFamily: "'DM Mono', monospace",
+                      transition: "all 0.2s",
+                    }}
+                  >Random</button>
+                  {practiceTopics.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setPracticeTopic(t)}
+                      style={{
+                        padding: "5px 10px", fontSize: 10,
+                        background: practiceTopic === t ? "var(--bg-hover)" : "transparent",
+                        border: `1px solid ${practiceTopic === t ? "var(--gold)" : "var(--border)"}`,
+                        borderRadius: 20, cursor: "pointer",
+                        color: practiceTopic === t ? "var(--gold)" : "var(--text-dim)",
+                        fontFamily: "'DM Mono', monospace",
+                        transition: "all 0.2s",
+                      }}
+                    >{t}</button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Generate button */}
+            <button
+              onClick={generatePractice}
+              disabled={!practiceSubject || practiceLoading}
+              className="btn-primary"
+              style={{
+                width: "100%", opacity: practiceSubject && !practiceLoading ? 1 : 0.3,
+              }}
+            >
+              {practiceLoading ? "Generating..." : "Generate Question →"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Dashboard Panel */}
       {showDashboard && (
