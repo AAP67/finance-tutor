@@ -130,45 +130,44 @@ function generateHTML(
 
   if (!stats) {
     return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Study Notes</title>
+<html><head><meta charset="utf-8"><title>Tutor Performance Report</title>
 <style>${CSS}</style></head>
 <body><div class="container">
-<h1>Finance Tutor — Study Notes</h1>
+<h1>Finance <span class="gold">Tutor</span> — Performance Report</h1>
 <p class="date">${now}</p>
-<div class="card"><p class="dim">No data available. Submit questions and feedback to generate study notes.</p></div>
+<div class="card"><p class="dim">No data available. Submit questions and feedback to generate the performance report.</p></div>
 </div></body></html>`;
   }
 
-  // Weak areas — topics with <80% accuracy
-  const weakAreas = stats.topicAccuracy.filter((t) => t.accuracy < 80 && t.total >= 1);
-  const strongAreas = stats.topicAccuracy.filter((t) => t.accuracy >= 80 && t.total >= 1);
+  // Weak areas — topics with <80% accuracy (used for status column)
 
   return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>Finance Tutor — Study Notes | ${now}</title>
+<title>Finance Tutor — Performance Report | ${now}</title>
 <style>${CSS}</style>
 </head>
 <body>
 <div class="container">
 
 <div class="header">
-  <h1>Finance <span class="gold">Tutor</span> — Study Notes</h1>
-  <p class="date">Generated ${now} · ${stats.total} questions analyzed</p>
+  <h1>Finance <span class="gold">Tutor</span> — Performance Report</h1>
+  <p class="date">Generated ${now} · ${stats.total} questions evaluated across ${stats.topicAccuracy.length} topics</p>
+  <p class="dim" style="margin-top:8px">This report tracks the AI tutor's accuracy across subjects. When the tutor makes mistakes, users submit corrections — the system logs the error type, extracts a lesson, and injects it into future prompts. This self-correcting loop improves performance over time.</p>
 </div>
 
-<!-- Performance Summary -->
+<!-- Tutor Accuracy Overview -->
 <div class="card">
-  <h2>Performance Summary</h2>
+  <h2>Tutor Accuracy Overview</h2>
   <div class="stats-row">
     <div class="stat">
       <div class="stat-num">${stats.total}</div>
-      <div class="stat-label">Questions</div>
+      <div class="stat-label">Questions Evaluated</div>
     </div>
     <div class="stat">
       <div class="stat-num ${stats.accuracyRate >= 80 ? 'green' : stats.accuracyRate >= 60 ? 'amber' : 'red'}">${stats.accuracyRate}%</div>
-      <div class="stat-label">Accuracy</div>
+      <div class="stat-label">Accuracy Rate</div>
     </div>
     <div class="stat">
       <div class="stat-num green">${stats.correct}</div>
@@ -176,48 +175,32 @@ function generateHTML(
     </div>
     <div class="stat">
       <div class="stat-num red">${stats.incorrect}</div>
-      <div class="stat-label">Errors</div>
+      <div class="stat-label">Errors Logged</div>
     </div>
   </div>
 </div>
 
-<!-- Areas Needing Work -->
-${weakAreas.length > 0 ? `
+<!-- Accuracy by Subject/Topic -->
 <div class="card">
-  <h2>Areas Needing Work</h2>
-  <p class="dim">Topics with accuracy below 80% — prioritize these in your study plan.</p>
+  <h2>Performance by Topic</h2>
+  <p class="dim">How the tutor performs across different subject areas. Topics below 80% accuracy are flagged — past mistakes on these topics are injected into future prompts to improve performance.</p>
   <table>
-    <tr><th>Topic</th><th>Accuracy</th><th>Score</th></tr>
-    ${weakAreas.map((t) => `
+    <tr><th>Topic</th><th>Accuracy</th><th>Score</th><th>Status</th></tr>
+    ${stats.topicAccuracy.map((t) => `
     <tr>
       <td>${esc(t.topic)}</td>
-      <td class="${t.accuracy < 60 ? 'red' : 'amber'}">${t.accuracy}%</td>
+      <td class="${t.accuracy >= 80 ? 'green' : t.accuracy >= 60 ? 'amber' : 'red'}">${t.accuracy}%</td>
       <td>${t.correct}/${t.total}</td>
+      <td>${t.accuracy >= 80 ? '<span class="green">Strong</span>' : t.accuracy >= 60 ? '<span class="amber">Improving</span>' : '<span class="red">Needs Training</span>'}</td>
     </tr>`).join("")}
   </table>
 </div>
-` : ""}
 
-<!-- Strong Areas -->
-${strongAreas.length > 0 ? `
-<div class="card">
-  <h2>Strong Areas</h2>
-  <table>
-    <tr><th>Topic</th><th>Accuracy</th><th>Score</th></tr>
-    ${strongAreas.map((t) => `
-    <tr>
-      <td>${esc(t.topic)}</td>
-      <td class="green">${t.accuracy}%</td>
-      <td>${t.correct}/${t.total}</td>
-    </tr>`).join("")}
-  </table>
-</div>
-` : ""}
-
-<!-- Common Mistake Types -->
+<!-- Error Analysis -->
 ${Object.keys(stats.mistakeTypes).length > 0 ? `
 <div class="card">
-  <h2>Common Mistake Types</h2>
+  <h2>Error Type Analysis</h2>
+  <p class="dim">Breakdown of how the tutor fails — each error type triggers a different correction pattern in the self-correcting loop.</p>
   <div class="tags">
     ${Object.entries(stats.mistakeTypes).sort(([,a],[,b]) => b - a).map(([type, count]) =>
       `<span class="tag"><strong>${count}x</strong> ${esc(type.replace(/_/g, " "))}</span>`
@@ -226,11 +209,11 @@ ${Object.keys(stats.mistakeTypes).length > 0 ? `
 </div>
 ` : ""}
 
-<!-- Key Lessons Learned -->
+<!-- Self-Correction Log -->
 ${mistakes.length > 0 ? `
 <div class="card">
-  <h2>Key Lessons Learned</h2>
-  <p class="dim">Mistakes the tutor made and lessons extracted — review these before your next session.</p>
+  <h2>Self-Correction Log</h2>
+  <p class="dim">When the tutor gets a question wrong, the error is categorized and a lesson is extracted. These lessons are injected into future prompts for the same topic — this is the core of the self-correcting architecture.</p>
   ${mistakes.map((m, i) => `
   <div class="lesson">
     <div class="lesson-header">
@@ -239,45 +222,41 @@ ${mistakes.length > 0 ? `
       <span class="tag-sm red-bg">${esc(m.mistake_type.replace(/_/g, " "))}</span>
     </div>
     <div class="lesson-q">${esc(m.question)}${m.question.length >= 150 ? "..." : ""}</div>
-    <div class="lesson-text">${esc(m.lesson)}</div>
+    <div class="lesson-text">Lesson learned: ${esc(m.lesson)}</div>
   </div>`).join("")}
 </div>
 ` : ""}
 
-<!-- Session History -->
+<!-- Evaluation History -->
 ${sessions.length > 0 ? `
 <div class="card">
-  <h2>Session History</h2>
+  <h2>Evaluation History</h2>
   <table>
-    <tr><th>Date</th><th>Score</th><th>Topics Covered</th></tr>
+    <tr><th>Date</th><th>Questions</th><th>Accuracy</th><th>Topics Tested</th></tr>
     ${sessions.slice(0, 10).map((s) => `
     <tr>
       <td>${esc(s.date)}</td>
-      <td class="${(s.correct/s.total) >= 0.8 ? 'green' : (s.correct/s.total) >= 0.6 ? 'amber' : 'red'}">${s.correct}/${s.total}</td>
+      <td>${s.total}</td>
+      <td class="${(s.correct/s.total) >= 0.8 ? 'green' : (s.correct/s.total) >= 0.6 ? 'amber' : 'red'}">${s.correct}/${s.total} (${Math.round((s.correct/s.total)*100)}%)</td>
       <td>${s.topics.map((t) => esc(t)).join(", ") || "—"}</td>
     </tr>`).join("")}
   </table>
 </div>
 ` : ""}
 
-<!-- Study Recommendations -->
+<!-- Architecture Note -->
 <div class="card">
-  <h2>Recommended Study Plan</h2>
+  <h2>How the Self-Correcting Loop Works</h2>
   <ol>
-    ${weakAreas.length > 0
-      ? weakAreas.slice(0, 3).map((t) =>
-        `<li><strong>Practice ${esc(t.topic)}</strong> — currently at ${t.accuracy}% accuracy (${t.correct}/${t.total}). Focus on this area before moving on.</li>`
-      ).join("")
-      : `<li>All topics at 80%+ accuracy — keep practicing to maintain your edge.</li>`}
-    ${Object.keys(stats.mistakeTypes).length > 0
-      ? `<li><strong>Watch for ${esc(Object.entries(stats.mistakeTypes).sort(([,a],[,b]) => b - a)[0][0].replace(/_/g, " "))} errors</strong> — this is your most common mistake type. Double-check these in your work.</li>`
-      : ""}
-    <li>Continue submitting feedback after each question to build the learning database.</li>
+    <li><strong>Classify</strong> — Haiku 4.5 classifies the question by difficulty and topic, then routes to the appropriate model (Haiku for easy, Sonnet for medium/hard).</li>
+    <li><strong>Solve</strong> — The solver receives topic-adaptive prompt templates and any past mistakes for this topic from the database.</li>
+    <li><strong>Compare</strong> — When a user submits the correct answer, Haiku independently validates both solutions, categorizes any error, and extracts an actionable lesson.</li>
+    <li><strong>Learn</strong> — The mistake type and lesson are stored in Supabase. On future questions in the same topic, these lessons are injected into the system prompt — so the tutor avoids repeating the same errors.</li>
   </ol>
 </div>
 
 <div class="footer">
-  <p>Finance Tutor · Study Notes · Karan Rajpal</p>
+  <p>Finance Tutor — Performance Report · Built by Karan Rajpal</p>
   <p class="dim">Print this page (Ctrl/Cmd + P) to save as PDF</p>
 </div>
 

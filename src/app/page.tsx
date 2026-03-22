@@ -744,7 +744,7 @@ export default function Home() {
                 className="btn-primary"
                 style={{ width: "100%", marginTop: 4 }}
               >
-                📄 Export Study Notes
+                📄 Export Performance Report
               </button>
             </>
           )}
