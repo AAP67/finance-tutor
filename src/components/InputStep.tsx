@@ -26,6 +26,11 @@ const SUBJECTS = [
   { id: "gmat", label: "GMAT Quant", icon: "∑" },
   { id: "cfa", label: "CFA", icon: "δ" },
   { id: "finance", label: "General Finance", icon: "¥" },
+  { id: "series7", label: "Series 7", icon: "§" },
+  { id: "series24", label: "Series 24", icon: "⊕" },
+  { id: "statistics", label: "Statistics", icon: "σ" },
+  { id: "accounting", label: "Accounting", icon: "Δ" },
+  { id: "economics", label: "Economics", icon: "∞" },
 ];
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -92,35 +97,34 @@ export default function InputStep({ onSubmit }: Props) {
     <>
       {/* Subject Picker */}
       <div className="label">Subject</div>
-      <div style={{ display: "flex", gap: 10, marginBottom: 28, animation: "fd 0.5s ease-out 0.08s both" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 28, animation: "fd 0.5s ease-out 0.08s both" }}>
         {SUBJECTS.map((s) => (
           <button
             key={s.id}
             onClick={() => setSubject(s.id)}
             style={{
-              flex: 1,
               background: subject === s.id ? "var(--bg-hover)" : "var(--bg-card)",
               border: `1.5px solid ${subject === s.id ? "var(--gold)" : "var(--border)"}`,
               borderRadius: 10,
-              padding: "14px 10px",
+              padding: "12px 6px",
               cursor: "pointer",
               textAlign: "center",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: 7,
+              gap: 5,
               transition: "all 0.2s",
               boxShadow: subject === s.id ? "0 0 20px rgba(226,192,102,0.07)" : "none",
             }}
           >
             <div style={{
-              fontSize: 20,
+              fontSize: 18,
               color: subject === s.id ? "var(--gold)" : "var(--text-dim)",
               fontFamily: "'Cormorant Garamond', serif",
               transition: "color 0.2s",
             }}>{s.icon}</div>
             <div style={{
-              fontSize: 12,
+              fontSize: 10,
               color: subject === s.id ? "var(--text-bright)" : "var(--text-dim)",
               fontFamily: "'DM Mono', monospace",
               transition: "color 0.2s",

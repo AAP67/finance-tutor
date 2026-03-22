@@ -148,6 +148,138 @@ export const TOPIC_TEMPLATES: Record<string, string> = {
 - For descriptive stats: mean, median, mode — note which is appropriate for the distribution
 - For hypothesis testing: state H0 and H1, choose the test, calculate the test statistic, compare to critical value
 - Always state the conclusion in context of the original question`,
+
+  // === Series 7 ===
+  "suitability": `
+- Identify the client's investment objective: growth, income, preservation, speculation
+- Consider risk tolerance, time horizon, liquidity needs, tax situation
+- Match the recommendation to the client profile — state WHY it's suitable
+- Note any red flags: concentration risk, unsuitable risk level, illiquidity mismatch`,
+
+  "margin": `
+- Distinguish between initial margin (Reg T = 50%) and maintenance margin (25% for long, 30% for short)
+- For margin calls: calculate equity, compare to maintenance requirement
+- Formula: margin call when equity / market value < maintenance %
+- For short sales: proceeds + deposit must cover market value + maintenance`,
+
+  "municipal": `
+- Tax-equivalent yield = municipal yield / (1 - tax bracket)
+- Distinguish between GO bonds (backed by taxing power) and revenue bonds (backed by project revenue)
+- Note: exempt from federal tax, may be exempt from state/local if in-state
+- Compare after-tax yields, not nominal yields`,
+
+  "options regulatory": `
+- Know position limits and exercise limits
+- Opening transactions vs closing transactions
+- Customer account requirements for different strategies
+- Distinguish between covered and uncovered (naked) positions — different margin requirements`,
+
+  // === Series 24 ===
+  "supervision": `
+- Identify the supervisory requirement being tested
+- Reference the specific FINRA rule when applicable (e.g., Rule 3110, Rule 3120)
+- Distinguish between principal approval, supervisory review, and compliance review
+- Note timeframes: when must review occur, what are the escalation requirements`,
+
+  "registration": `
+- Identify the registration category: representative, principal, associated person
+- Know the exam requirements: SIE + top-off exams
+- Continuing education: Regulatory Element (annually) vs Firm Element (annual plan)
+- U4/U5 filing requirements and timelines`,
+
+  "compliance": `
+- Identify the compliance issue: AML, insider trading, market manipulation, books and records
+- Know SAR filing thresholds and requirements
+- Distinguish between required and prohibited activities
+- Note record retention requirements: 3 years, 6 years, or lifetime depending on record type`,
+
+  "net capital": `
+- Net capital rule (SEC Rule 15c3-1): minimum net capital requirements
+- Aggregate indebtedness method vs alternative method
+- Haircuts on securities positions
+- Customer reserve computation (Rule 15c3-3)`,
+
+  // === Accounting ===
+  "journal entry": `
+- Always state the debit and credit accounts explicitly
+- Use T-account format or DR/CR notation
+- Verify debits = credits (the entry must balance)
+- Identify the account type (asset, liability, equity, revenue, expense) for each entry
+- Note the effect on the accounting equation: A = L + E`,
+
+  "financial statement": `
+- Identify which statement is affected: income statement, balance sheet, cash flow, or equity
+- For balance sheet: assets = liabilities + equity must always hold
+- For income statement: revenue - expenses = net income
+- For cash flow: distinguish between operating, investing, and financing activities
+- Note: accrual vs cash basis differences if relevant`,
+
+  "depreciation": `
+- Identify the method: straight-line, declining balance, units of production, MACRS
+- Straight-line: (Cost - Salvage) / Useful life
+- Double declining: 2 / Useful life x Book value (ignore salvage until end)
+- State the annual depreciation expense and accumulated depreciation
+- Note: land is NEVER depreciated`,
+
+  "ratio analysis": `
+- State the formula before calculating
+- Liquidity: current ratio, quick ratio, cash ratio
+- Profitability: ROA, ROE, profit margin, gross margin
+- Leverage: debt-to-equity, interest coverage, debt ratio
+- Efficiency: inventory turnover, receivables turnover, asset turnover
+- Always interpret the result — what does this ratio tell us about the company?`,
+
+  "revenue recognition": `
+- Apply the 5-step model (ASC 606): identify contract, identify obligations, determine price, allocate price, recognize revenue
+- Revenue is recognized when performance obligation is satisfied
+- Point in time vs over time recognition — state which applies and why
+- Note any variable consideration or contract modifications`,
+
+  // === Economics ===
+  "supply demand": `
+- Draw or describe the supply and demand diagram
+- Identify the shift: is it supply shifting, demand shifting, or both?
+- Distinguish between a shift OF the curve vs movement ALONG the curve
+- State the effect on equilibrium price AND quantity
+- A shift in demand: price and quantity move in same direction
+- A shift in supply: price and quantity move in opposite directions`,
+
+  "elasticity": `
+- State the formula: % change in quantity / % change in price
+- Use midpoint method for arc elasticity: % change = (Q2-Q1)/((Q2+Q1)/2)
+- Elastic: |E| > 1 (quantity responsive to price)
+- Inelastic: |E| < 1 (quantity not responsive to price)
+- Unit elastic: |E| = 1
+- Revenue implications: elastic = lower price increases revenue, inelastic = raise price increases revenue`,
+
+  "gdp": `
+- GDP = C + I + G + (X - M) — expenditure approach
+- Distinguish between nominal GDP and real GDP
+- Real GDP adjusts for inflation using a base year
+- GDP deflator = (Nominal GDP / Real GDP) x 100
+- Growth rate = (GDP_new - GDP_old) / GDP_old x 100`,
+
+  "monetary policy": `
+- Identify the central bank tool: open market operations, discount rate, reserve requirements
+- Expansionary: buy bonds, lower rates, lower reserves → increases money supply
+- Contractionary: sell bonds, raise rates, raise reserves → decreases money supply
+- Transmission mechanism: policy → interest rates → investment/consumption → output
+- Note the difference between nominal and real interest rates (Fisher equation)`,
+
+  "fiscal policy": `
+- Identify the tool: government spending, taxation, transfer payments
+- Expansionary: increase spending or cut taxes → increases aggregate demand
+- Contractionary: decrease spending or raise taxes → decreases aggregate demand
+- Multiplier effect: spending multiplier = 1 / (1 - MPC)
+- Tax multiplier = -MPC / (1 - MPC)
+- Crowding out: government borrowing can raise interest rates and reduce private investment`,
+
+  "trade": `
+- Comparative advantage: produce where opportunity cost is lowest
+- Absolute advantage: produce where productivity is highest
+- Terms of trade must fall between the opportunity costs of both countries
+- Trade balance = exports - imports
+- Note: a country can have comparative advantage without absolute advantage`,
 };
 
 /**
